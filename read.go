@@ -25,9 +25,10 @@ type service struct {
 
 // location结构
 type location struct {
-	root     string   //根路径，会附加在service结构的根路径上
-	upstream string   //使用的后端服务器池名
-	hashRing hashRing //哈希环
+	locationType int
+	root         string   //根路径，会附加在service结构的根路径上
+	upstream     string   //使用的后端服务器池名
+	hashRing     hashRing //哈希环
 }
 
 // 读取配置文件
@@ -115,6 +116,12 @@ func readConfig(engine *Engine) {
 		case locationType:
 			s := strings.Split(line, "=")
 			switch s[0] {
+			case "type":
+				typeNum, err := strconv.Atoi(s[1])
+				if err != nil {
+					log.Fatalf("location type字段设置错误：%v", err)
+				}
+				locationStruct.locationType = typeNum
 			case "root":
 				locationStruct.root = s[1]
 			case "upstream":

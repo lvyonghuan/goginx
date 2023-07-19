@@ -26,4 +26,5 @@ func (engine *Engine) writeEngine(cfg config) {
 			location.addNode(engine)
 		}
 	}
+	engine.mu.Unlock()
 }

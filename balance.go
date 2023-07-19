@@ -28,6 +28,18 @@ func (location *location) addNode(engine *Engine) {
 	sort.Ints(location.hashRing.ring)
 }
 
+// 均衡器。利用客户端ip计算客户端的哈希值，并且获取顺时针的节点。通过二分查找进行。
+func (hashRing hashRing) balancer(ip string) string {
+	hash := int(hash([]byte(ip)))
+	idx := sort.Search(len(hashRing.ring), func(i int) bool {
+		return hashRing.ring[i] >= hash
+	})
+	if idx == len(hashRing.ring) {
+		idx = 0
+	}
+	return hashRing.nodes[hashRing.ring[idx]]
+}
+
 // 计算哈希值
 // TODO gpt写的
 func hash(data []byte) uint32 {
