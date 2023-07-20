@@ -11,7 +11,6 @@
 3. `stop`--停止服务
 
 ## config规范
-### 标识符
 - `[server]`-用于标示server块的开始
 
     server块下的字段有：
