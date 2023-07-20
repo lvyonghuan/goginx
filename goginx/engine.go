@@ -25,7 +25,6 @@ type Engine struct {
 	mu                sync.Mutex //一把锁，用于动态修改引擎
 	service           []service
 	upstream          map[string][]string
-	wg                sync.WaitGroup       //要退出程序的时候直接用一个新的waitGroup罩上去实现归零
 	servicesPoll      map[string]*location //现有的服务池
 	resetServicesPoll map[string]*location //重启后的服务池
 	state             int                  //引擎现在的状态
@@ -73,7 +72,6 @@ func (engine *Engine) resetEngine() {
 	readConfig(engine)
 	for key, value := range engine.resetServicesPoll {
 		if _, ok := engine.servicesPoll[key]; !ok {
-			engine.wg.Add(1)
 			go value.listen(&engine.mu, &engine.servicesPoll)
 		}
 	}
@@ -83,10 +81,16 @@ func (engine *Engine) resetEngine() {
 			if err != nil {
 				log.Println("关闭服务错误：", err)
 			}
-			engine.wg.Done()
 		} else {
 			value.hashRing = engine.resetServicesPoll[key].hashRing
 		}
 	}
 	engine.mu.Unlock()
+}
+
+func (engine *Engine) stopEngine() {
+	for _, value := range engine.servicesPoll {
+		value.httpService.Close()
+	}
+	log.Println("程序退出")
 }

@@ -16,3 +16,7 @@ func (engine *Engine) Start() {
 func (engine *Engine) Reset() {
 	engine.resetEngine()
 }
+
+func (engine *Engine) Stop() {
+	engine.stopEngine()
+}

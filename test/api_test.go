@@ -1,7 +1,7 @@
 package test
 
 import (
-	"goginx"
+	goginx2 "goginx/goginx"
 	"log"
 	"sync"
 	"testing"
@@ -10,10 +10,10 @@ import (
 
 var wg sync.WaitGroup
 
-var engine *goginx.Engine
+var engine *goginx2.Engine
 
 func TestInit(t *testing.T) {
-	engine = goginx.Init()
+	engine = goginx2.Init()
 }
 
 func TestStart(t *testing.T) {
@@ -28,5 +28,9 @@ func TestReset(t *testing.T) {
 	}
 	log.Println("reset测试开始")
 	engine.Reset()
+}
+
+func TestStop(t *testing.T) {
+	engine.Stop()
 	wg.Wait()
 }

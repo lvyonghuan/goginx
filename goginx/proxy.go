@@ -15,11 +15,9 @@ import (
 func (engine *Engine) startListen() {
 	for _, s := range engine.service {
 		for _, location := range s.location {
-			engine.wg.Add(1)
 			go location.listen(&engine.mu, &engine.servicesPoll)
 		}
 	}
-	engine.wg.Wait()
 }
 
 // 对每个location进行监听
