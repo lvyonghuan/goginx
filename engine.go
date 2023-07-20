@@ -4,7 +4,6 @@ package goginx
 
 import (
 	"log"
-	"net/http"
 	"strconv"
 	"sync"
 )
@@ -26,16 +25,16 @@ type Engine struct {
 	mu                sync.Mutex //一把锁，用于动态修改引擎
 	service           []service
 	upstream          map[string][]string
-	wg                sync.WaitGroup          //要退出程序的时候直接用一个新的waitGroup罩上去实现归零
-	servicesPoll      map[string]*http.Server //现有的服务池
-	resetServicesPoll map[string]*location    //重启后的服务池
-	state             int                     //引擎现在的状态
+	wg                sync.WaitGroup       //要退出程序的时候直接用一个新的waitGroup罩上去实现归零
+	servicesPoll      map[string]*location //现有的服务池
+	resetServicesPoll map[string]*location //重启后的服务池
+	state             int                  //引擎现在的状态
 }
 
 func createEngine() *Engine {
 	engine := Engine{}
 	engine.resetServicesPoll = make(map[string]*location)
-	engine.servicesPoll = make(map[string]*http.Server)
+	engine.servicesPoll = make(map[string]*location)
 	return &engine
 }
 
@@ -79,11 +78,13 @@ func (engine *Engine) resetEngine() {
 	}
 	for key, value := range engine.servicesPoll {
 		if _, ok := engine.resetServicesPoll[key]; !ok {
-			err := value.Close()
+			err := value.httpService.Close()
 			if err != nil {
 				log.Println("关闭服务错误：", err)
 			}
 			engine.wg.Done()
+		} else {
+			value.hashRing = engine.resetServicesPoll[key].hashRing
 		}
 	}
 	engine.mu.Unlock()

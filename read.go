@@ -5,6 +5,7 @@ package goginx
 import (
 	"bufio"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -30,6 +31,7 @@ type location struct {
 	root         string   //根路径，会附加在service结构的根路径上
 	upstream     string   //使用的后端服务器池名
 	hashRing     hashRing //哈希环
+	httpService  *http.Server
 }
 
 // 读取配置文件

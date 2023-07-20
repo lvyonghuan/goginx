@@ -23,7 +23,7 @@ func (engine *Engine) startListen() {
 }
 
 // 对每个location进行监听
-func (location *location) listen(mu *sync.Mutex, servicesPoll *map[string]*http.Server) {
+func (location *location) listen(mu *sync.Mutex, servicesPoll *map[string]*location) {
 	server := &http.Server{
 		Addr: location.root,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -35,7 +35,8 @@ func (location *location) listen(mu *sync.Mutex, servicesPoll *map[string]*http.
 			}
 		}),
 	}
-	(*servicesPoll)[location.root] = server
+	location.httpService = server
+	(*servicesPoll)[location.root] = location
 
 	err := server.ListenAndServe()
 	if err != nil {
