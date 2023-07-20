@@ -19,7 +19,7 @@ func (location *location) getFile(w http.ResponseWriter, r *http.Request, mu *sy
 		mu.Unlock()
 	}
 
-	file, err := os.ReadFile(location.root)
+	file, err := os.ReadFile(location.fileRoot)
 	if err != nil {
 		log.Println("文件查找错误：", err)
 		http.Error(w, "文件查找错误", http.StatusInternalServerError)

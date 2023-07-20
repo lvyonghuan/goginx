@@ -32,6 +32,7 @@ type location struct {
 	upstream     string   //使用的后端服务器池名
 	hashRing     hashRing //哈希环
 	httpService  *http.Server
+	fileRoot     string
 }
 
 // 读取配置文件

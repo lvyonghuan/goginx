@@ -50,6 +50,7 @@ func (engine *Engine) writeEngine(cfg config) {
 			case loadBalancing:
 				root = "127.0.0.1:" + strconv.Itoa(service.listen) + service.root + location.root
 			case fileService:
+				location.fileRoot = location.root
 				root = "127.0.0.1:" + strconv.Itoa(service.listen) + service.root
 			}
 			location.root = root
