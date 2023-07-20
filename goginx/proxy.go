@@ -1,7 +1,6 @@
 package goginx
 
 import (
-	"errors"
 	"log"
 	"net"
 	"net/http"
@@ -23,7 +22,6 @@ func (engine *Engine) startListen() {
 
 // 对每个location进行监听
 func (location *location) listen(mu *sync.Mutex, servicesPoll *map[string]*location) {
-	var errServerClosed = errors.New("http: Server closed")
 	server := &http.Server{
 		Addr: location.root,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +38,7 @@ func (location *location) listen(mu *sync.Mutex, servicesPoll *map[string]*locat
 
 	err := server.ListenAndServe()
 	if err != nil {
-		if err == errServerClosed {
+		if err.Error() == "http: Server closed" {
 			return
 		}
 		log.Println("监听", location.root, "错误，错误信息：", err)

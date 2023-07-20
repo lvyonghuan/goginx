@@ -71,12 +71,17 @@ func (engine *Engine) resetEngine() {
 	engine.state = reset
 	readConfig(engine)
 	for key, value := range engine.resetServicesPoll {
-		if _, ok := engine.servicesPoll[key]; !ok {
+		_, ok := engine.servicesPoll[key]
+		log.Println("1", key, " ", ok)
+		if !ok {
 			go value.listen(&engine.mu, &engine.servicesPoll)
 		}
 	}
 	for key, value := range engine.servicesPoll {
-		if _, ok := engine.resetServicesPoll[key]; !ok {
+		_, ok := engine.resetServicesPoll[key]
+		log.Println("2", key, " ", ok)
+		if !ok {
+			delete(engine.servicesPoll, key)
 			err := value.httpService.Close()
 			if err != nil {
 				log.Println("关闭服务错误：", err)
@@ -85,6 +90,7 @@ func (engine *Engine) resetEngine() {
 			value.hashRing = engine.resetServicesPoll[key].hashRing
 		}
 	}
+	engine.resetServicesPoll = make(map[string]*location) //释放内存
 	engine.mu.Unlock()
 }
 
