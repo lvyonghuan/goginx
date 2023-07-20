@@ -1,83 +1,77 @@
 package goginx
 
 import (
-	"io"
 	"log"
 	"net"
-	"strconv"
+	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"sync"
 )
-
-var wg sync.WaitGroup //要退出程序的时候直接用一个新的waitGroup罩上去实现归零
 
 //实现反向代理
 
 // 启动监听服务
 func (engine *Engine) startListen() {
-	const (
-		loadBalancing = 1
-		fileService   = 2
-	)
 	for _, s := range engine.service {
 		for _, location := range s.location {
-			switch location.locationType {
-			//如果location类型是负载均衡
-			case loadBalancing:
-				wg.Add(1)
-				go location.listen("127.0.0.1:" + strconv.Itoa(s.listen) + s.root + location.root)
-			case fileService:
-				//TODO 文件服务
-			}
+			engine.wg.Add(1)
+			go location.listen(&engine.mu, &engine.servicesPoll)
 		}
 	}
-	wg.Wait()
+	engine.wg.Wait()
 }
 
 // 对每个location进行监听
-func (location *location) listen(root string) {
-	listener, err := net.Listen("tcp", root)
-	if err != nil {
-		log.Println("监听", root, "错误，错误信息：", err)
-		return
+func (location *location) listen(mu *sync.Mutex, servicesPoll *map[string]*http.Server) {
+	server := &http.Server{
+		Addr: location.root,
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch location.locationType {
+			case loadBalancing:
+				location.hashRing.forward(w, r, mu)
+			case fileService:
+				location.getFile(w, r, mu)
+			}
+		}),
 	}
-	defer listener.Close()
-	for {
-		conn, err := listener.Accept()
-		if err != nil {
-			log.Println("监听", root, "出现问题:", err)
-			continue
-		}
-		go location.hashRing.forward(conn)
+	(*servicesPoll)[location.root] = server
+
+	err := server.ListenAndServe()
+	if err != nil {
+		log.Println("监听", location.root, "错误，错误信息：", err)
 	}
 }
 
 // 反向代理，将信息转发给后端服务器，再转发回去
-func (hashRing hashRing) forward(conn net.Conn) {
-	defer conn.Close()
-	//先获取客户端ip
-	var ip string
-	clientAddr := conn.RemoteAddr()
-	if tcpAddr, ok := clientAddr.(*net.TCPAddr); ok {
-		ip = string(tcpAddr.IP)
+func (hashRing hashRing) forward(w http.ResponseWriter, r *http.Request, mu *sync.Mutex) {
+	//询问是否正在热重启。如果是则返回503，服务器维护状态码。
+	isNotReSet := mu.TryLock()
+	if !isNotReSet {
+		http.Error(w, "服务重启中，请重试", http.StatusServiceUnavailable)
+		return
 	} else {
-		log.Println("获取ip错误")
-		return //一定要获取到ip才能提供负载均衡
+		mu.Unlock()
 	}
-	//获取后端服务器
+
+	// 获取客户端ip
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		log.Println("获取ip错误:", err)
+		http.Error(w, "获取ip错误", http.StatusInternalServerError)
+		return
+	}
+
+	// 获取后端服务器
 	serviceIP := hashRing.balancer(ip)
-	serviceConn, err := net.Dial("tcp", serviceIP)
+	remote, err := url.Parse("http://" + serviceIP)
 	if err != nil {
-		log.Println("反向代理问题，连接服务器失败。错误信息：", err)
+		log.Println("解析目标服务器地址失败:", err)
+		http.Error(w, "解析目标服务器地址失败", http.StatusInternalServerError)
 		return
 	}
-	defer serviceConn.Close()
-	_, err = io.Copy(serviceConn, conn)
-	if err != nil {
-		log.Println("反向代理问题，数据转发到服务器失败，错误信息：", err)
-		return
-	}
-	_, err = io.Copy(conn, serviceConn)
-	if err != nil {
-		log.Println("反向代理失败，数据转发到客户端失败，错误信息：", err)
-	}
+
+	// 创建反向代理
+	proxy := httputil.NewSingleHostReverseProxy(remote)
+	proxy.ServeHTTP(w, r)
 }

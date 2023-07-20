@@ -25,6 +25,7 @@ type service struct {
 
 // location结构
 type location struct {
+	replicas     int
 	locationType int
 	root         string   //根路径，会附加在service结构的根路径上
 	upstream     string   //使用的后端服务器池名
@@ -126,6 +127,12 @@ func readConfig(engine *Engine) {
 				locationStruct.root = s[1]
 			case "upstream":
 				locationStruct.upstream = s[1]
+			case "replicas":
+				replicas, err := strconv.Atoi(s[1])
+				if err != nil {
+					log.Fatalf("replicas 字段设置错误：%v", err)
+				}
+				locationStruct.replicas = replicas
 			}
 		}
 	}

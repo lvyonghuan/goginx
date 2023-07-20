@@ -19,7 +19,7 @@ type hashRing struct {
 func (location *location) addNode(engine *Engine) {
 	upstream := engine.upstream[location.upstream]
 	for _, node := range upstream {
-		for i := 0; i < engine.replicas; i++ {
+		for i := 0; i < location.replicas; i++ {
 			hashValue := int(hash([]byte(strconv.Itoa(i) + node)))
 			location.hashRing.ring = append(location.hashRing.ring, hashValue)
 			location.hashRing.nodes[hashValue] = node
