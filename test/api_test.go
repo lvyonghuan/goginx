@@ -28,6 +28,7 @@ func TestReset(t *testing.T) {
 	}
 	log.Println("reset测试开始")
 	engine.Reset()
+	wg.Wait()
 }
 
 func TestStop(t *testing.T) {

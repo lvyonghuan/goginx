@@ -14,31 +14,37 @@ import (
 // 配置文件结构
 type config struct {
 	service  []service
-	upstream map[string][]string //一个后端服务器池名对应多个后端服务器
+	upstream map[string]*upstream //一个后端服务器池名对应多个后端服务器
+}
+
+// upstream结构
+type upstream struct {
+	addr     []string  //服务器地址
+	hashRing *hashRing //upstream对应的哈希环
+	replicas int       //每个虚拟节点对应的真实节点数量
 }
 
 // service结构
 type service struct {
-	listen   int    //定义监听的代理服务器端口号
-	root     string //文件根位置
-	location []*location
+	port        string //定义监听的代理服务器端口号。一个端口号绑定一个service。
+	httpService *http.Server
+	location    []*location
+	hashValue   uint64 //location哈希值的和。
 }
 
 // location结构
 type location struct {
-	replicas     int
 	locationType int
-	root         string   //根路径，会附加在service结构的根路径上
-	upstream     string   //使用的后端服务器池名
-	hashRing     hashRing //哈希环
-	httpService  *http.Server
-	fileRoot     string
+	root         string //根路径，会附加在service结构的根路径上
+	upstream     string //使用的后端服务器池名
+	fileRoot     string //fileRoot，文件路径，和root是两个东西了
+	hashValue    uint32 //location哈希值。用于验证location是否发生变化。
 }
 
 // 读取配置文件
 func readConfig(engine *Engine) {
 	var cfg config
-	cfg.upstream = make(map[string][]string)
+	cfg.upstream = make(map[string]*upstream)
 	file, err := os.Open("./config/config.cfg")
 	if err != nil {
 		log.Fatalf("open config file failed: %v", err)
@@ -100,22 +106,23 @@ func readConfig(engine *Engine) {
 		case serviceType:
 			s := strings.Split(line, "=")
 			switch s[0] {
-			case "listen":
-				port, err := strconv.Atoi(s[1])
-				if err != nil {
-					log.Fatalf("read config file failed: %v", err)
-				}
-				serviceStruct.listen = port
-			case "root":
-				serviceStruct.root = s[1]
+			case "port":
+				serviceStruct.port = s[1]
 			}
 		case upstreamType:
 			s := strings.Split(line, "=")
 			switch s[0] {
 			case "name":
 				upstreamName = s[1]
+				cfg.upstream[upstreamName] = &upstream{}
+			case "replicas":
+				replicas, err := strconv.Atoi(s[1])
+				if err != nil {
+					log.Fatalf("replicas 字段设置错误：%v", err)
+				}
+				cfg.upstream[upstreamName].replicas = replicas
 			default:
-				cfg.upstream[upstreamName] = append(cfg.upstream[upstreamName], s[0])
+				cfg.upstream[upstreamName].addr = append(cfg.upstream[upstreamName].addr, s[0])
 			}
 		case locationType:
 			s := strings.Split(line, "=")
@@ -130,12 +137,8 @@ func readConfig(engine *Engine) {
 				locationStruct.root = s[1]
 			case "upstream":
 				locationStruct.upstream = s[1]
-			case "replicas":
-				replicas, err := strconv.Atoi(s[1])
-				if err != nil {
-					log.Fatalf("replicas 字段设置错误：%v", err)
-				}
-				locationStruct.replicas = replicas
+			case "file_root":
+				locationStruct.fileRoot = s[1]
 			}
 		}
 	}

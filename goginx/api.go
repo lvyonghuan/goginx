@@ -10,11 +10,13 @@ func Init() *Engine {
 // Start 启动服务
 func (engine *Engine) Start() {
 	engine.startListen()
+	engine.wg.Wait()
 }
 
 // Reset 重启动服务，不中断服务。
 func (engine *Engine) Reset() {
 	engine.resetEngine()
+	engine.wg.Wait()
 }
 
 func (engine *Engine) Stop() {
