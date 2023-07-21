@@ -23,18 +23,19 @@ func (engine *Engine) startListen() {
 // 对每个service进行监听
 func (service *service) listen(mu *sync.Mutex, servicesPoll *map[string]*service, upstreamMap *map[string]*upstream, wg *sync.WaitGroup) {
 	mux := http.NewServeMux()
-	for _, location := range service.location {
-		if location.root == "" {
-			location.root = "/"
+	for i := range service.location {
+		location := &service.location[i]
+		if (*location).root == "" {
+			(*location).root = "/"
 		}
-		switch location.locationType {
+		switch (*location).locationType {
 		case loadBalancing:
-			mux.HandleFunc(location.root, func(writer http.ResponseWriter, request *http.Request) {
-				location.forward(writer, request, mu, upstreamMap)
+			mux.HandleFunc((*location).root, func(writer http.ResponseWriter, request *http.Request) {
+				(*location).forward(writer, request, mu, upstreamMap)
 			})
 		case fileService:
-			mux.HandleFunc(location.root, func(writer http.ResponseWriter, request *http.Request) {
-				location.getFile(writer, request, mu)
+			mux.HandleFunc((*location).root, func(writer http.ResponseWriter, request *http.Request) {
+				(*location).getFile(writer, request, mu)
 			})
 		}
 	}
