@@ -15,12 +15,12 @@ import (
 func (engine *Engine) startListen() {
 	for i := range engine.service {
 		service := &engine.service[i]
-		go service.listen(&engine.mu, &engine.servicesPoll)
+		go service.listen(&engine.mu, &engine.servicesPoll, &engine.upstream)
 	}
 }
 
 // 对每个service进行监听
-func (service *service) listen(mu *sync.Mutex, servicesPoll *map[string]*service) {
+func (service *service) listen(mu *sync.Mutex, servicesPoll *map[string]*service, upstreamMap *map[string]*upstream) {
 	mux := http.NewServeMux()
 	for _, location := range service.location {
 		if location.root == "" {
@@ -29,7 +29,7 @@ func (service *service) listen(mu *sync.Mutex, servicesPoll *map[string]*service
 		switch location.locationType {
 		case loadBalancing:
 			mux.HandleFunc(location.root, func(writer http.ResponseWriter, request *http.Request) {
-				location.hashRing.forward(writer, request, mu)
+				location.forward(writer, request, mu, upstreamMap)
 			})
 		case fileService:
 			mux.HandleFunc(location.root, func(writer http.ResponseWriter, request *http.Request) {
@@ -55,7 +55,7 @@ func (service *service) listen(mu *sync.Mutex, servicesPoll *map[string]*service
 }
 
 // 反向代理，将信息转发给后端服务器，再转发回去
-func (hashRing hashRing) forward(w http.ResponseWriter, r *http.Request, mu *sync.Mutex) {
+func (location *location) forward(w http.ResponseWriter, r *http.Request, mu *sync.Mutex, upstreamMap *map[string]*upstream) {
 	//询问是否正在热重启。如果是则返回503，服务器维护状态码。
 	isNotReSet := mu.TryLock()
 	if !isNotReSet {
@@ -64,6 +64,10 @@ func (hashRing hashRing) forward(w http.ResponseWriter, r *http.Request, mu *syn
 	} else {
 		mu.Unlock()
 	}
+
+	//	获取hash环
+	upstream := (*upstreamMap)[location.upstream]
+	hashRing := upstream.hashRing
 
 	// 获取客户端ip
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)

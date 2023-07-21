@@ -56,8 +56,6 @@ func (engine *Engine) writeEngine(cfg config) {
 			//计算location哈希值，用于一致性比对
 			location.hashValue = hash([]byte(strconv.Itoa(location.locationType) + location.root + location.fileRoot + location.upstream))
 			service.hashValue += uint64(location.hashValue)
-			//服务节点配对对应哈希环
-			location.hashRing = engine.upstream[location.upstream].hashRing
 		}
 		if engine.state == reset { //reset信息写入reset map
 			engine.resetServicesPoll[service.port] = service
@@ -76,7 +74,8 @@ func (engine *Engine) resetEngine() {
 		//首先确定不存在的，启动服务
 		src, ok := engine.servicesPoll[key]
 		if !ok {
-			go value.listen(&engine.mu, &engine.servicesPoll)
+			go value.listen(&engine.mu, &engine.servicesPoll, &engine.upstream)
+			continue
 		}
 		//如果已经存在，则确认哈希value是否是一致的
 		if value.hashValue != src.hashValue {
@@ -86,7 +85,7 @@ func (engine *Engine) resetEngine() {
 			if err != nil {
 				log.Println("关闭服务错误：", err)
 			}
-			go value.listen(&engine.mu, &engine.servicesPoll)
+			go value.listen(&engine.mu, &engine.servicesPoll, &engine.upstream)
 		}
 	}
 	//确认已经关掉的服务

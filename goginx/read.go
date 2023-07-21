@@ -35,11 +35,10 @@ type service struct {
 // location结构
 type location struct {
 	locationType int
-	root         string    //根路径，会附加在service结构的根路径上
-	upstream     string    //使用的后端服务器池名
-	hashRing     *hashRing //哈希环
-	fileRoot     string    //fileRoot，文件路径，和root是两个东西了
-	hashValue    uint32    //location哈希值。用于验证location是否发生变化。
+	root         string //根路径，会附加在service结构的根路径上
+	upstream     string //使用的后端服务器池名
+	fileRoot     string //fileRoot，文件路径，和root是两个东西了
+	hashValue    uint32 //location哈希值。用于验证location是否发生变化。
 }
 
 // 读取配置文件
