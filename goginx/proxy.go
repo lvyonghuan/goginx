@@ -58,7 +58,7 @@ func (service *service) listen(mu *sync.Mutex, servicesPoll *map[string]*service
 	}
 }
 
-// 反向代理，将信息转发给后端服务器，再转发回去
+// 反向代理，将信息转发给后端服务器
 func (location *location) forward(w http.ResponseWriter, r *http.Request, mu *sync.Mutex, upstreamMap *map[string]*upstream) {
 	//询问是否正在热重启。如果是则返回503，服务器维护状态码。
 	isNotReSet := mu.TryLock()
