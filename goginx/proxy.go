@@ -90,7 +90,7 @@ func (location *location) forward(w http.ResponseWriter, r *http.Request, mu *sy
 		return
 	}
 
-	// 创建反向代理
+	// 创建反向代理。
 	proxy := httputil.NewSingleHostReverseProxy(remote)
 	proxy.ServeHTTP(w, r)
 }
