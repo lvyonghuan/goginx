@@ -16,16 +16,15 @@ type hashRing struct {
 }
 
 // 新建哈希节点，replicas为每个真实节点对应的虚拟节点数
-func (location *location) addNode(engine *Engine) {
-	upstream := engine.upstream[location.upstream]
-	for _, node := range upstream {
-		for i := 0; i < location.replicas; i++ {
+func (upstream *upstream) addNode(engine *Engine) {
+	for _, node := range upstream.addr {
+		for i := 0; i < upstream.replicas; i++ {
 			hashValue := int(hash([]byte(strconv.Itoa(i) + node)))
-			location.hashRing.ring = append(location.hashRing.ring, hashValue)
-			location.hashRing.nodes[hashValue] = node
+			upstream.hashRing.ring = append(upstream.hashRing.ring, hashValue)
+			upstream.hashRing.nodes[hashValue] = node
 		}
 	}
-	sort.Ints(location.hashRing.ring)
+	sort.Ints(upstream.hashRing.ring)
 }
 
 // 均衡器。利用客户端ip计算客户端的哈希值，并且获取顺时针的节点。通过二分查找进行。

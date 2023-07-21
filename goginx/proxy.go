@@ -13,35 +13,44 @@ import (
 
 // 启动监听服务
 func (engine *Engine) startListen() {
-	for _, s := range engine.service {
-		for _, location := range s.location {
-			go location.listen(&engine.mu, &engine.servicesPoll)
-		}
+	for i := range engine.service {
+		service := &engine.service[i]
+		go service.listen(&engine.mu, &engine.servicesPoll)
 	}
 }
 
-// 对每个location进行监听
-func (location *location) listen(mu *sync.Mutex, servicesPoll *map[string]*location) {
-	server := &http.Server{
-		Addr: location.root,
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			switch location.locationType {
-			case loadBalancing:
-				location.hashRing.forward(w, r, mu)
-			case fileService:
-				location.getFile(w, r, mu)
-			}
-		}),
+// 对每个service进行监听
+func (service *service) listen(mu *sync.Mutex, servicesPoll *map[string]*service) {
+	mux := http.NewServeMux()
+	for _, location := range service.location {
+		if location.root == "" {
+			location.root = "/"
+		}
+		switch location.locationType {
+		case loadBalancing:
+			mux.HandleFunc(location.root, func(writer http.ResponseWriter, request *http.Request) {
+				location.hashRing.forward(writer, request, mu)
+			})
+		case fileService:
+			mux.HandleFunc(location.root, func(writer http.ResponseWriter, request *http.Request) {
+				location.getFile(writer, request, mu)
+			})
+		}
 	}
-	location.httpService = server
-	(*servicesPoll)[location.root] = location
 
-	err := server.ListenAndServe()
+	src := &http.Server{
+		Addr:    ":" + service.port, //还是和端口绑定了，令人感叹
+		Handler: mux,
+	}
+	service.httpService = src
+	(*servicesPoll)[service.port] = service
+
+	err := src.ListenAndServe()
 	if err != nil {
 		if err.Error() == "http: Server closed" {
 			return
 		}
-		log.Println("监听", location.root, "错误，错误信息：", err)
+		log.Println("监听", service.port, "错误，错误信息：", err)
 	}
 }
 

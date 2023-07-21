@@ -19,6 +19,7 @@ func TestInit(t *testing.T) {
 func TestStart(t *testing.T) {
 	wg.Add(1)
 	go engine.Start()
+	wg.Wait()
 }
 
 func TestReset(t *testing.T) {
