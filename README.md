@@ -14,20 +14,20 @@
 - `[server]`-用于标示server块的开始
 
     server块下的字段有：
-- - `listen`-监听的代理服务器端口
+- - `port`-监听的代理服务器端口。一个端口只能用于一个server块。
 - - `[location]`-location块起始符，标示location块的开始。
 
     location块的字段有
 - - - `type`-标示了location块的类型。有两类。`1`代表了location是均衡负载类型，`2`代表了location是提供本地静态文件服务。
-- - - `root`-如果location的`type`为`2`，则该字段启用，表示文件在服务器中的位置。
+- - - `root`-如果location的`type`为`2`，则该字段启用，表示文件服务路由。
 - - - `upstream`-表示location使用的后端服务器池名。池名参考`upstream块`的内容。
-- - - `replicas`-每个真实服务器节点对应的虚拟节点数，用于哈希一致性算法的建构。
-
+- - - `file_root`-表示要获取的文件的路径。
 
 - `[upstream]`-用于标示upstream块的开始
 
   upstream块下的字段有：
 - - `name`-必须紧跟（不包括注释）在`[upstream]`标识符后。用于命名该后端服务器池。
+- - - `replicas`-每个真实服务器节点对应的虚拟节点数，用于哈希一致性算法的建构。
 - - `name`字段之后跟随后端服务器的ip地址
 
 - `[end]`-用于标示每个块的结束。
