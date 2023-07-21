@@ -28,6 +28,7 @@ type Engine struct {
 	servicesPoll      map[string]*service //现有的服务池
 	resetServicesPoll map[string]*service //重启后的服务池
 	state             int                 //引擎现在的状态
+	wg                sync.WaitGroup
 }
 
 func createEngine() *Engine {
@@ -74,7 +75,8 @@ func (engine *Engine) resetEngine() {
 		//首先确定不存在的，启动服务
 		src, ok := engine.servicesPoll[key]
 		if !ok {
-			go value.listen(&engine.mu, &engine.servicesPoll, &engine.upstream)
+			engine.wg.Add(1)
+			go value.listen(&engine.mu, &engine.servicesPoll, &engine.upstream, &engine.wg)
 			continue
 		}
 		//如果已经存在，则确认哈希value是否是一致的
@@ -85,7 +87,8 @@ func (engine *Engine) resetEngine() {
 			if err != nil {
 				log.Println("关闭服务错误：", err)
 			}
-			go value.listen(&engine.mu, &engine.servicesPoll, &engine.upstream)
+			engine.wg.Add(1)
+			go value.listen(&engine.mu, &engine.servicesPoll, &engine.upstream, &engine.wg)
 		}
 	}
 	//确认已经关掉的服务

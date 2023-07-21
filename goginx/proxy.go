@@ -15,12 +15,13 @@ import (
 func (engine *Engine) startListen() {
 	for i := range engine.service {
 		service := &engine.service[i]
-		go service.listen(&engine.mu, &engine.servicesPoll, &engine.upstream)
+		engine.wg.Add(1)
+		go service.listen(&engine.mu, &engine.servicesPoll, &engine.upstream, &engine.wg)
 	}
 }
 
 // 对每个service进行监听
-func (service *service) listen(mu *sync.Mutex, servicesPoll *map[string]*service, upstreamMap *map[string]*upstream) {
+func (service *service) listen(mu *sync.Mutex, servicesPoll *map[string]*service, upstreamMap *map[string]*upstream, wg *sync.WaitGroup) {
 	mux := http.NewServeMux()
 	for _, location := range service.location {
 		if location.root == "" {
@@ -44,6 +45,8 @@ func (service *service) listen(mu *sync.Mutex, servicesPoll *map[string]*service
 	}
 	service.httpService = src
 	(*servicesPoll)[service.port] = service
+
+	wg.Done()
 
 	err := src.ListenAndServe()
 	if err != nil {
