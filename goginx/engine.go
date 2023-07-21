@@ -72,14 +72,12 @@ func (engine *Engine) resetEngine() {
 	readConfig(engine)
 	for key, value := range engine.resetServicesPoll {
 		_, ok := engine.servicesPoll[key]
-		log.Println("1", key, " ", ok)
 		if !ok {
 			go value.listen(&engine.mu, &engine.servicesPoll)
 		}
 	}
 	for key, value := range engine.servicesPoll {
 		_, ok := engine.resetServicesPoll[key]
-		log.Println("2", key, " ", ok)
 		if !ok {
 			delete(engine.servicesPoll, key)
 			err := value.httpService.Close()
