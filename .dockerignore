@@ -1,0 +1,6 @@
+.gitattributes
+.gitignore
+dockerfile
+goginx.*
+LICENSE
+README.md
