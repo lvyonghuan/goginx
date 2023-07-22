@@ -1,4 +1,4 @@
-# goginx
+。# goginx
  go语言实现nginx
 
 ---
@@ -11,6 +11,8 @@
 3. `stop`--停止服务
 
 ## config规范
+config分为[server]、[location]、[upstream]三个模块。server模块与端口绑定，统辖location块。location块用于提供具体的服务，例如负载均衡或者文件服务。upstream块为后端服务器池。
+
 - `[server]`-用于标示server块的开始
 
     server块下的字段有：
