@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // 配置文件结构
@@ -19,9 +20,11 @@ type config struct {
 
 // upstream结构
 type upstream struct {
-	addr     []string  //服务器地址
-	hashRing *hashRing //upstream对应的哈希环
-	replicas int       //每个虚拟节点对应的真实节点数量
+	addr      []string       //服务器地址
+	hashRing  *hashRing      //upstream对应的哈希环
+	replicas  int            //每个虚拟节点对应的真实节点数量
+	failCount map[string]int //记录每个后端服务器的失败连接次数，超过三次就把这个服务器从这个池子里扬了
+	mu        sync.Mutex     //一把锁，用于热重启
 }
 
 // service结构
@@ -30,6 +33,7 @@ type service struct {
 	httpService *http.Server
 	location    []*location
 	hashValue   uint64 //location哈希值的和。
+	mu          sync.Mutex
 }
 
 // location结构
@@ -96,10 +100,10 @@ func readConfig(engine *Engine) {
 			case upstreamType:
 				upstreamName = ""
 				nowType = endType
-
 			}
 			continue
 		}
+
 		//检查目前字段所处区块
 		switch nowType {
 		//处理service区块
@@ -115,6 +119,7 @@ func readConfig(engine *Engine) {
 			case "name":
 				upstreamName = s[1]
 				cfg.upstream[upstreamName] = &upstream{}
+				cfg.upstream[upstreamName].failCount = make(map[string]int)
 			case "replicas":
 				replicas, err := strconv.Atoi(s[1])
 				if err != nil {

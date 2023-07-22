@@ -16,12 +16,12 @@ func (engine *Engine) startListen() {
 	for i := range engine.service {
 		service := &engine.service[i]
 		engine.wg.Add(1)
-		go service.listen(&engine.mu, &engine.servicesPoll, &engine.upstream, &engine.wg)
+		go service.listen(&engine.servicesPoll, &engine.upstream, &engine.wg)
 	}
 }
 
 // 对每个service进行监听
-func (service *service) listen(mu *sync.Mutex, servicesPoll *map[string]*service, upstreamMap *map[string]*upstream, wg *sync.WaitGroup) {
+func (service *service) listen(servicesPoll *map[string]*service, upstreamMap *map[string]*upstream, wg *sync.WaitGroup) {
 	mux := http.NewServeMux()
 	for i := range service.location {
 		location := &service.location[i]
@@ -31,11 +31,11 @@ func (service *service) listen(mu *sync.Mutex, servicesPoll *map[string]*service
 		switch (*location).locationType {
 		case loadBalancing:
 			mux.HandleFunc((*location).root, func(writer http.ResponseWriter, request *http.Request) {
-				(*location).forward(writer, request, mu, upstreamMap)
+				(*location).forward(writer, request, &service.mu, upstreamMap)
 			})
 		case fileService:
 			mux.HandleFunc((*location).root, func(writer http.ResponseWriter, request *http.Request) {
-				(*location).getFile(writer, request, mu)
+				(*location).getFile(writer, request, &service.mu)
 			})
 		}
 	}
@@ -71,6 +71,13 @@ func (location *location) forward(w http.ResponseWriter, r *http.Request, mu *sy
 
 	//	获取hash环
 	upstream := (*upstreamMap)[location.upstream]
+	isNotReSet = upstream.mu.TryLock()
+	if !isNotReSet {
+		http.Error(w, "服务重启中，请重试", http.StatusServiceUnavailable)
+		return
+	} else {
+		upstream.mu.Unlock()
+	}
 	hashRing := upstream.hashRing
 
 	// 获取客户端ip
@@ -93,4 +100,12 @@ func (location *location) forward(w http.ResponseWriter, r *http.Request, mu *sy
 	// 创建反向代理。
 	proxy := httputil.NewSingleHostReverseProxy(remote)
 	proxy.ServeHTTP(w, r)
+	if len(w.Header()) == 0 {
+		upstream.failCount[serviceIP] += 1
+		count := upstream.failCount[serviceIP]
+		if count == 3 {
+			log.Println("后端服务器", serviceIP, "已失效")
+			upstream.del(serviceIP)
+		}
+	}
 }
