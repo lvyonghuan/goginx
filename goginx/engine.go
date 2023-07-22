@@ -22,7 +22,6 @@ const (
 )
 
 type Engine struct {
-	mu                sync.Mutex //一把锁，用于动态修改引擎
 	service           []service
 	upstream          map[string]*upstream
 	servicesPoll      map[string]*service //现有的服务池
@@ -39,15 +38,16 @@ func createEngine() *Engine {
 }
 
 func (engine *Engine) writeEngine(cfg config) {
-	engine.mu.Lock()
 	engine.service = cfg.service
 	engine.upstream = cfg.upstream
 
 	//处理后端服务器池，建构哈希环
 	for _, v := range engine.upstream {
+		v.mu.Lock()
 		v.hashRing = &hashRing{}
 		v.hashRing.nodes = make(map[int]string)
-		v.addNode(engine)
+		v.addNode()
+		v.mu.Unlock()
 	}
 
 	//处理服务节点
@@ -62,10 +62,6 @@ func (engine *Engine) writeEngine(cfg config) {
 			engine.resetServicesPoll[service.port] = service
 		}
 	}
-
-	if engine.state != reset { //如果engine状态等于reset，将在重写完成之后再启动
-		engine.mu.Unlock()
-	}
 }
 
 func (engine *Engine) resetEngine() {
@@ -76,11 +72,12 @@ func (engine *Engine) resetEngine() {
 		src, ok := engine.servicesPoll[key]
 		if !ok {
 			engine.wg.Add(1)
-			go value.listen(&engine.mu, &engine.servicesPoll, &engine.upstream, &engine.wg)
+			go value.listen(&engine.servicesPoll, &engine.upstream, &engine.wg)
 			continue
 		}
 		//如果已经存在，则确认哈希value是否是一致的
 		if value.hashValue != src.hashValue {
+			src.mu.Lock()
 			//如果不等于，则停掉原来的服务，再根据新的重启
 			delete(engine.servicesPoll, key)
 			err := src.httpService.Close()
@@ -88,7 +85,8 @@ func (engine *Engine) resetEngine() {
 				log.Println("关闭服务错误：", err)
 			}
 			engine.wg.Add(1)
-			go value.listen(&engine.mu, &engine.servicesPoll, &engine.upstream, &engine.wg)
+			go value.listen(&engine.servicesPoll, &engine.upstream, &engine.wg)
+			src.mu.Unlock()
 		}
 	}
 	//确认已经关掉的服务
@@ -103,7 +101,6 @@ func (engine *Engine) resetEngine() {
 		}
 	}
 	engine.resetServicesPoll = make(map[string]*service) //释放内存
-	engine.mu.Unlock()
 }
 
 func (engine *Engine) stopEngine() {

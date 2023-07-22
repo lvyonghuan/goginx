@@ -16,7 +16,7 @@ type hashRing struct {
 }
 
 // 新建哈希节点，replicas为每个真实节点对应的虚拟节点数
-func (upstream *upstream) addNode(engine *Engine) {
+func (upstream *upstream) addNode() {
 	for _, node := range upstream.addr {
 		for i := 0; i < upstream.replicas; i++ {
 			hashValue := int(hash([]byte(strconv.Itoa(i) + node)))
@@ -43,4 +43,20 @@ func (hashRing hashRing) balancer(ip string) string {
 // TODO gpt写的
 func hash(data []byte) uint32 {
 	return crc32.ChecksumIEEE(data)
+}
+
+// 从后端服务器池中删除字段并重构哈希环
+func (upstream *upstream) del(ip string) {
+	for i, v := range upstream.addr {
+		//删除切片中的指定元素
+		if ip == v {
+			upstream.addr = append(upstream.addr[:i], upstream.addr[i+1:]...)
+			break
+		}
+	}
+	upstream.mu.Lock()
+	upstream.hashRing = &hashRing{}
+	upstream.hashRing.nodes = make(map[int]string)
+	upstream.addNode()
+	upstream.mu.Unlock()
 }
